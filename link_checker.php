@@ -162,9 +162,11 @@ function checkUrl($url, $depth, $maxDepth, &$visited, &$results, $targetHost, $t
         foreach ($dom->getElementsByTagName('script') as $link) $nodes[] = $link->getAttribute('src');
 
         foreach ($nodes as $href) {
+            $url = '';
             if (!$href || strpos($href, '#') === 0 || strpos($href, 'mailto:') === 0 || strpos($href, 'javascript:') === 0) continue;
-            if (strpos($href, 'http') !== 0) $href = $base . '/' . ltrim($href, '/');
-            checkUrl($href, $depth + 1, $maxDepth, $visited, $results, $targetHost, $targetPort, $checkExternal, $checkHtml, $stats, $url);
+            if (preg_match("/^\/\//", $href)) $url = $parsed['scheme'] . '://' . ltrim($href, '/');
+            elseif (strpos($href, 'http') !== 0) $url = $base . '/' . ltrim($href, '/');
+            checkUrl($url, $depth + 1, $maxDepth, $visited, $results, $targetHost, $targetPort, $checkExternal, $checkHtml, $stats, $url);
         }
     }
 }
@@ -251,7 +253,7 @@ if ($hasIssues) {
         if ($code === "HTTP 200") continue; 
         $detailPart .= "[$code]\n";
         foreach ($data as $item) {
-            $detailPart .= " - " . $item['url'] . ((isset($item['isExt']) && $item['isExt']) || (isset($item['isEmbed']) && $item['isEmbed']) ? " <- " . $item['ref'] : "") . "\n";
+            $detailPart .= " - " . $item['url'] .  " <- " . $item['ref'] . "\n";
             if ($code === "PHP Issue"){
                 $detailPart .= "   {$item['file']} on line {$item['line']}\n";
             }else if ($code === "HTML Issue") {
