@@ -93,6 +93,7 @@ function checkUrl($url, $depth, $maxDepth, &$visited, &$results, $targetHost, $t
     $currentHost = $parsed['host'] ?? '';
     $currentPort = $parsed['port'] ?? null;
     $isExternal  = ($currentHost !== '' && $currentHost !== $targetHost) || ($currentPort !== $targetPort);
+    $isEmbed = preg_match('/\.(js|css|jpg|jpeg|png|gif|svg|webp|ico|mp4|webm|mp3|wav|woff2?|ttf|pdf)$/i', $parsed['path'] ?? '') ? true : false;
 
     // Skip external links if not enabled
     if ($isExternal && !$checkExternal) {
@@ -113,13 +114,15 @@ function checkUrl($url, $depth, $maxDepth, &$visited, &$results, $targetHost, $t
 
     // Initialize cURL
     $ch = curl_init($url);
+
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_MAXREDIRS      => 3,
         CURLOPT_TIMEOUT        => 5,
         CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_USERAGENT      => 'PHP Link Checker/1.0'
+        CURLOPT_USERAGENT      => 'PHP Link Checker/1.0',
+        CURLOPT_NOBODY         => $isExternal
     ]);
     
     $response    = curl_exec($ch);
@@ -127,7 +130,7 @@ function checkUrl($url, $depth, $maxDepth, &$visited, &$results, $targetHost, $t
     $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
     curl_close($ch);
 
-    $results["HTTP $httpCode"][] = ['url' => $url, 'ref' => $referrer, 'isExt' => $isExternal];
+    $results["HTTP $httpCode"][] = ['url' => $url, 'ref' => $referrer, 'isExt' => $isExternal, 'isEmbed' => $isEmbed];
 
     // Check for issues if the link is internal
     if (!$isExternal) {
@@ -248,7 +251,7 @@ if ($hasIssues) {
         if ($code === "HTTP 200") continue; 
         $detailPart .= "[$code]\n";
         foreach ($data as $item) {
-            $detailPart .= " - " . $item['url'] . (isset($item['isExt']) && $item['isExt'] ? " <- " . $item['ref'] : "") . "\n";
+            $detailPart .= " - " . $item['url'] . ((isset($item['isExt']) && $item['isExt']) || (isset($item['isEmbed']) && $item['isEmbed']) ? " <- " . $item['ref'] : "") . "\n";
             if ($code === "PHP Issue"){
                 $detailPart .= "   {$item['file']} on line {$item['line']}\n";
             }else if ($code === "HTML Issue") {
